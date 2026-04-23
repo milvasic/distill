@@ -1,6 +1,6 @@
 # distill
 
-**dist**ribute + **install** — generate a self-contained `install.sh` for any CLI tool.
+**dist**ribute + **install** - A single-file Bash CLI that generates a self-contained 'install.sh' for any CLI tool.
 
 Every CLI tool deserves a proper installer: one that handles fresh installs,
 idempotent upgrades with semver comparison, interactive and non-interactive
