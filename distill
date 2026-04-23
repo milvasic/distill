@@ -4,13 +4,16 @@
 
 set -euo pipefail
 
-VERSION="0.1.0"
+VERSION="0.2.0"
+INSTALLER_SELF_URL="https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh"
 
 # ── Colors & logging ──────────────────────────────────────────────────────────
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-BOLD="\033[1m"
-RESET="\033[0m"
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[0;33m'
+CYAN=$'\033[0;36m'
+BOLD=$'\033[1m'
+RESET=$'\033[0m'
 
 log() { printf "\n${BOLD}=== %s ===${RESET}\n" "$1" >&2; }
 error() { printf "${RED}ERROR:${RESET} %s\n" "$1" >&2; }
@@ -19,36 +22,39 @@ ok() { printf "${GREEN}%s${RESET}\n" "$1" >&2; }
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
 	cat >&2 <<EOF
-distill v${VERSION} — generate a self-contained install.sh for any CLI tool.
+A single-file Bash CLI that generates a self-contained 'install.sh' for any CLI tool.
 
 Usage:
-  distill [options]
+  ${GREEN}distill${RESET} ${YELLOW}<command>${RESET} ${CYAN}[flags]${RESET}
+  ${GREEN}distill${RESET} ${CYAN}[generate flags]${RESET}   ${GREEN}# 'generate' is the default command${RESET}
 
-Options:
-  --name NAME          Binary name (required)
-  --asset-url URL      Direct URL to the downloadable asset (required)
-  --installer-url URL  URL to the generated install.sh (required)
-  --install-dir DIR    Installation directory          (default: /usr/local/bin)
-  --asset-type TYPE    Asset type: script | binary     (default: script)
-  --version-url URL    Plain-text version endpoint     (required for binary)
-  --output FILE        Write to FILE instead of stdout
-  --version            Print version and exit
-  --help, -h           Show this message
+Commands:
+  ${YELLOW}generate${RESET}              - Generate an install.sh for a CLI tool (default)
+  ${YELLOW}update${RESET}                - Update distill to the latest version
+  ${YELLOW}version${RESET}, ${CYAN}-v${RESET}           - Print version
+  ${YELLOW}help${RESET}, ${CYAN}-h${RESET}              - Show this message
 
-When called without flags in an interactive terminal, distill prompts for
-each value.
+Generate flags:
+  ${CYAN}--name${RESET} NAME           - Binary name (required)
+  ${CYAN}--asset-url${RESET} URL       - Direct URL to the downloadable asset (required)
+  ${CYAN}--installer-url${RESET} URL   - URL to the generated install.sh (required)
+  ${CYAN}--install-dir${RESET} DIR     - Installation directory          (default: /usr/local/bin)
+  ${CYAN}--asset-type${RESET} TYPE     - Asset type: script | binary     (default: script)
+  ${CYAN}--version-url${RESET} URL     - Plain-text version endpoint     (required for binary)
+  ${CYAN}--output${RESET} FILE         - Write to FILE instead of stdout
+
+When called without arguments in an interactive terminal, distill prompts for each generate value.
 
 Examples:
-  # Interactive wizard
-  distill
+  ${GREEN}distill${RESET} ${YELLOW}generate${RESET}                          ${GREEN}# interactive wizard${RESET}
+  ${GREEN}distill${RESET}                                   ${GREEN}# generate is implied with no args${RESET}
 
-  # Non-interactive, output to stdout
-  distill --name mytool \\
-    --asset-url https://raw.githubusercontent.com/you/mytool/refs/heads/main/mytool \\
-    --installer-url https://raw.githubusercontent.com/you/mytool/refs/heads/main/install.sh
+  ${GREEN}distill${RESET} ${YELLOW}generate${RESET} ${CYAN}--name${RESET} mytool \\          ${GREEN}# non-interactive, output to stdout${RESET}
+    ${CYAN}--asset-url${RESET} https://raw.githubusercontent.com/you/mytool/refs/heads/main/mytool \\
+    ${CYAN}--installer-url${RESET} https://raw.githubusercontent.com/you/mytool/refs/heads/main/install.sh
 
-  # Write directly to a file
-  distill --name mytool ... --output install.sh
+  ${GREEN}distill${RESET} ${YELLOW}generate${RESET} ${CYAN}--name${RESET} mytool ... ${CYAN}--output${RESET} install.sh    ${GREEN}# write to file${RESET}
+  ${GREEN}distill${RESET} ${YELLOW}update${RESET}                                            ${GREEN}# self-update${RESET}
 EOF
 	exit 1
 }
@@ -391,124 +397,154 @@ esac
 ENGINE
 }
 
-# ── Argument parsing ──────────────────────────────────────────────────────────
-binary_name=""
-install_dir="/usr/local/bin"
-asset_type="script"
-asset_url=""
-installer_url=""
-version_url=""
-output_file=""
+# ── Generate command ─────────────────────────────────────────────────────────
+do_generate() {
+	local binary_name=""
+	local install_dir="/usr/local/bin"
+	local asset_type="script"
+	local asset_url=""
+	local installer_url=""
+	local version_url=""
+	local output_file=""
 
-# Track which optional-with-defaults flags were explicitly supplied
-install_dir_set=false
-asset_type_set=false
+	# Track which optional-with-defaults flags were explicitly supplied
+	local install_dir_set=false
+	local asset_type_set=false
 
-while [ $# -gt 0 ]; do
-	case "$1" in
-	--name)
-		binary_name="${2:?--name requires an argument}"
-		shift 2
-		;;
-	--install-dir)
-		install_dir="${2:?--install-dir requires an argument}"
-		install_dir_set=true
-		shift 2
-		;;
-	--asset-type)
-		asset_type="${2:?--asset-type requires an argument}"
-		asset_type_set=true
-		shift 2
-		;;
-	--asset-url)
-		asset_url="${2:?--asset-url requires an argument}"
-		shift 2
-		;;
-	--installer-url)
-		installer_url="${2:?--installer-url requires an argument}"
-		shift 2
-		;;
-	--version-url)
-		version_url="${2:?--version-url requires an argument}"
-		shift 2
-		;;
-	--output)
-		output_file="${2:?--output requires an argument}"
-		shift 2
-		;;
-	--version)
-		echo "distill v${VERSION}"
-		exit 0
-		;;
-	--help | -h) usage ;;
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		--name)
+			binary_name="${2:?--name requires an argument}"
+			shift 2
+			;;
+		--install-dir)
+			install_dir="${2:?--install-dir requires an argument}"
+			install_dir_set=true
+			shift 2
+			;;
+		--asset-type)
+			asset_type="${2:?--asset-type requires an argument}"
+			asset_type_set=true
+			shift 2
+			;;
+		--asset-url)
+			asset_url="${2:?--asset-url requires an argument}"
+			shift 2
+			;;
+		--installer-url)
+			installer_url="${2:?--installer-url requires an argument}"
+			shift 2
+			;;
+		--version-url)
+			version_url="${2:?--version-url requires an argument}"
+			shift 2
+			;;
+		--output)
+			output_file="${2:?--output requires an argument}"
+			shift 2
+			;;
+		--help | -h) usage ;;
+		*)
+			error "Unknown option: $1"
+			usage
+			;;
+		esac
+	done
+
+	# ── Interactive prompts for missing values ─────────────────────────────
+	# Require both stdin AND stdout to be TTYs: if stdout is piped, the
+	# generated script is being consumed directly and prompts would corrupt it.
+	if [ -t 0 ] && [ -t 1 ]; then
+		log "distill v${VERSION}"
+		printf "Press Enter to accept the value shown in [brackets].\n\n" >&2
+
+		[ -z "$binary_name" ] && prompt binary_name "Binary name"
+		[ -z "$asset_url" ] && prompt asset_url "Asset URL"
+		[ -z "$installer_url" ] && prompt installer_url "Installer URL"
+		[ "$install_dir_set" = false ] && prompt install_dir "Install directory" "$install_dir"
+
+		if [ "$asset_type_set" = false ]; then
+			local _at=""
+			prompt _at "Asset type (script/binary)" "$asset_type"
+			asset_type="${_at:-$asset_type}"
+		fi
+
+		if [ "$asset_type" = "binary" ] && [ -z "$version_url" ]; then
+			prompt version_url "Version URL"
+		fi
+	fi
+
+	# ── Validate ───────────────────────────────────────────────────────────
+	local _valid=true
+	[ -z "$binary_name" ] && {
+		error "--name is required"
+		_valid=false
+	}
+	[ -z "$asset_url" ] && {
+		error "--asset-url is required"
+		_valid=false
+	}
+	[ -z "$installer_url" ] && {
+		error "--installer-url is required"
+		_valid=false
+	}
+
+	case "$asset_type" in
+	script | binary) ;;
 	*)
-		error "Unknown option: $1"
+		error "Invalid --asset-type '${asset_type}': must be 'script' or 'binary'"
+		_valid=false
+		;;
+	esac
+
+	if [ "$asset_type" = "binary" ] && [ -z "$version_url" ]; then
+		error "--version-url is required for --asset-type binary"
+		_valid=false
+	fi
+
+	[ "$_valid" = false ] && {
+		echo >&2
+		usage
+	}
+
+	# ── Generate ────────────────────────────────────────────────────────────
+	if [ -n "$output_file" ]; then
+		generate_install_sh >"$output_file"
+		chmod +x "$output_file"
+		ok "Generated: ${output_file}"
+	else
+		generate_install_sh
+	fi
+}
+
+# ── Update command ────────────────────────────────────────────────────────────
+do_update() {
+	if command -v curl >/dev/null 2>&1; then
+		sh -c "$(curl -fsSL "${INSTALLER_SELF_URL}")" -- --yes
+	elif command -v wget >/dev/null 2>&1; then
+		sh -c "$(wget -qO- "${INSTALLER_SELF_URL}")" -- --yes
+	else
+		error "Neither curl nor wget found. Please install one and try again."
+		exit 1
+	fi
+}
+
+# ── Main dispatch ─────────────────────────────────────────────────────────────
+COMMAND="${1:-}"
+
+# 'generate' is the default: no args, or first arg is a flag
+if [[ -z "$COMMAND" || "$COMMAND" == --* ]]; then
+	do_generate "$@"
+else
+	shift
+	case "$COMMAND" in
+	generate) do_generate "$@" ;;
+	update) do_update ;;
+	version | -v) echo "${VERSION}" ;;
+	help | -h) usage ;;
+	*)
+		error "Unknown command: ${COMMAND}"
 		usage
 		;;
 	esac
-done
-
-# ── Interactive prompts for missing values ────────────────────────────────────
-# Require both stdin AND stdout to be TTYs: if stdout is piped, the generated
-# script is being consumed directly and prompts would corrupt the output.
-if [ -t 0 ] && [ -t 1 ]; then
-	log "distill v${VERSION}"
-	printf "Press Enter to accept the value shown in [brackets].\n\n" >&2
-
-	[ -z "$binary_name" ] && prompt binary_name "Binary name"
-	[ -z "$asset_url" ] && prompt asset_url "Asset URL"
-	[ -z "$installer_url" ] && prompt installer_url "Installer URL"
-	[ "$install_dir_set" = false ] && prompt install_dir "Install directory" "$install_dir"
-
-	if [ "$asset_type_set" = false ]; then
-		_at=""
-		prompt _at "Asset type (script/binary)" "$asset_type"
-		asset_type="${_at:-$asset_type}"
-	fi
-
-	if [ "$asset_type" = "binary" ] && [ -z "$version_url" ]; then
-		prompt version_url "Version URL"
-	fi
-fi
-
-# ── Validate ──────────────────────────────────────────────────────────────────
-_valid=true
-[ -z "$binary_name" ] && {
-	error "--name is required"
-	_valid=false
-}
-[ -z "$asset_url" ] && {
-	error "--asset-url is required"
-	_valid=false
-}
-[ -z "$installer_url" ] && {
-	error "--installer-url is required"
-	_valid=false
-}
-
-case "$asset_type" in
-script | binary) ;;
-*)
-	error "Invalid --asset-type '${asset_type}': must be 'script' or 'binary'"
-	_valid=false
-	;;
-esac
-
-if [ "$asset_type" = "binary" ] && [ -z "$version_url" ]; then
-	error "--version-url is required for --asset-type binary"
-	_valid=false
-fi
-
-[ "$_valid" = false ] && {
-	echo >&2
-	usage
-}
-
-# ── Generate ──────────────────────────────────────────────────────────────────
-if [ -n "$output_file" ]; then
-	generate_install_sh >"$output_file"
-	chmod +x "$output_file"
-	ok "Generated: ${output_file}"
-else
-	generate_install_sh
 fi

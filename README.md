@@ -31,15 +31,32 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/milvasic/distill/refs/head
 
 ## Usage
 
+```
+distill <command> [flags]
+distill [generate flags]   # 'generate' is the default command
+```
+
+### Commands
+
+| Command         | Description                             |
+| --------------- | --------------------------------------- |
+| `generate`      | Generate an `install.sh` for a CLI tool |
+| `update`        | Update distill to the latest version    |
+| `version`, `-v` | Print version                           |
+| `help`, `-h`    | Show help                               |
+
+`generate` is the default — if the first argument starts with `--` (or there
+are no arguments), distill behaves as if you typed `distill generate`.
+
 ### Interactive wizard
 
-Running `distill` with no arguments starts an interactive prompt for each
-parameter:
+Running `distill generate` (or just `distill`) with no flags starts an
+interactive prompt for each parameter:
 
 ```
-$ distill
+$ distill generate
 
-=== distill v0.1.0 ===
+=== distill v0.2.0 ===
 Press Enter to accept the value shown in [brackets].
 
 Binary name: mytool
@@ -52,21 +69,27 @@ Asset type (script/binary) [script]:
 Output goes to stdout; redirect it or use `--output`:
 
 ```sh
-distill > install.sh
+distill generate > install.sh
 chmod +x install.sh
 ```
 
 ### Non-interactive (flags)
 
 ```sh
-distill \
+distill generate \
   --name mytool \
   --asset-url https://raw.githubusercontent.com/you/mytool/refs/heads/main/mytool \
   --installer-url https://raw.githubusercontent.com/you/mytool/refs/heads/main/install.sh \
   --output install.sh
 ```
 
-### Options
+### Self-update
+
+```sh
+distill update
+```
+
+### Generate flags
 
 | Flag                  | Description                               | Default                 |
 | --------------------- | ----------------------------------------- | ----------------------- |
@@ -77,8 +100,6 @@ distill \
 | `--asset-type TYPE`   | `script` or `binary`                      | `script`                |
 | `--version-url URL`   | Plain-text version endpoint (binary only) | _(required for binary)_ |
 | `--output FILE`       | Write to file instead of stdout           | stdout                  |
-| `--version`           | Print distill version and exit            |                         |
-| `--help`, `-h`        | Show help                                 |                         |
 
 ## What gets generated
 
@@ -98,7 +119,7 @@ you never need to remember the original parameters:
 
 ```sh
 # CONFIG — edit this block or regenerate with:
-#   distill --name "mytool" \
+#   distill generate --name "mytool" \
 #     --asset-url "https://..." \
 #     --installer-url "https://..."
 ```

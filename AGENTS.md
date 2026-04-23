@@ -24,8 +24,10 @@ upgrades, and uninstallation of `distill` to `/usr/local/bin`.
   - `<<HEADER` (double-quoted): expands distill's variables to produce the CONFIG block
   - `<<'ENGINE'` (single-quoted): outputs the engine verbatim — nothing is expanded by distill
 - **Engine portability**: The embedded engine is POSIX sh; it runs on dash, bash, and ash
-- **Interactive + non-interactive**: Prompts for missing values when stdin is a TTY;
-  accepts all values as flags for scripted use
+- **Subcommand model**: `generate` (default), `update`, `version`, `help`; if the
+  first arg starts with `--` or is absent, `generate` is implied
+- **Interactive + non-interactive**: `generate` prompts for missing values when both
+  stdin and stdout are TTYs; accepts all values as flags for scripted use
 
 ## Conventions
 
@@ -36,7 +38,8 @@ upgrades, and uninstallation of `distill` to `/usr/local/bin`.
   `install.sh` in this repo is a concrete instantiation of it (distill dogfooding itself)
 - When the engine changes, regenerate `install.sh` with:
   ```sh
-  distill --name distill \
+  distill generate \
+    --name distill \
     --asset-url https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/distill \
     --installer-url https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh \
     --output install.sh
@@ -49,7 +52,7 @@ upgrades, and uninstallation of `distill` to `/usr/local/bin`.
 The version is hardcoded as `VERSION` near the top of `./distill`. Follow semver:
 
 - **Patch** (`0.1.x`): bug fixes, behavioral tweaks, internal refactors
-- **Minor** (`0.x.0`): new flags, new asset types, new engine features
+- **Minor** (`0.x.0`): new commands, new flags, new asset types, new engine features
 - **No bump**: doc-only changes (`README.md`, `AGENTS.md`, comments)
 
 When bumping the version, also regenerate `install.sh` so the generated-by comment
@@ -68,18 +71,26 @@ Then smoke-test by running:
 
 ```sh
 # Interactive wizard
-./distill
+./distill generate
 
-# Non-interactive
+# Non-interactive (explicit and implicit generate)
+./distill generate --name foo \
+  --asset-url https://example.com/foo \
+  --installer-url https://example.com/install.sh
+
 ./distill --name foo \
   --asset-url https://example.com/foo \
   --installer-url https://example.com/install.sh
+
+# Other commands
+./distill version
+./distill help
 ```
 
 Verify the generated output is valid sh:
 
 ```sh
-./distill --name foo \
+./distill generate --name foo \
   --asset-url https://example.com/foo \
   --installer-url https://example.com/install.sh | sh -n
 ```
