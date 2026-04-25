@@ -56,7 +56,7 @@ interactive prompt for each parameter:
 ```
 $ distill generate
 
-=== distill v0.2.0 ===
+=== distill v0.2.1 ===
 Press Enter to accept the value shown in [brackets].
 
 Binary name: mytool
@@ -132,7 +132,7 @@ The asset is a shell script with `VERSION="x.y.z"` near the top. The engine
 extracts the version by grepping the downloaded file — no separate version
 endpoint needed.
 
-### `binary` (future)
+### `binary`
 
 The asset is a compiled binary. The engine fetches the version from a
 separate plain-text `VERSION_URL` endpoint, then substitutes `{VERSION}` in
