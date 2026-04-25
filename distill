@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.2.1"
 INSTALLER_SELF_URL="https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh"
 
 # ── Colors & logging ──────────────────────────────────────────────────────────
@@ -259,7 +259,7 @@ version_compare() {
 }
 
 # ── Install / Update ──────────────────────────────────────────────────────────
-do_install() {
+install() {
   log "${BINARY_NAME} installer"
 
   # Sequencing differs by type: scripts are downloaded first (version is inside
@@ -337,7 +337,7 @@ do_install() {
 }
 
 # ── Uninstall ─────────────────────────────────────────────────────────────────
-do_uninstall() {
+uninstall() {
   log "${BINARY_NAME} uninstaller"
 
   if [ ! -f "$INSTALL_PATH" ]; then
@@ -391,14 +391,14 @@ for arg in "$@"; do
 done
 
 case "$action" in
-install) do_install ;;
-uninstall) do_uninstall ;;
+install) install ;;
+uninstall) uninstall ;;
 esac
 ENGINE
 }
 
 # ── Generate command ─────────────────────────────────────────────────────────
-do_generate() {
+generate() {
 	local binary_name=""
 	local install_dir="/usr/local/bin"
 	local asset_type="script"
@@ -518,7 +518,7 @@ do_generate() {
 }
 
 # ── Update command ────────────────────────────────────────────────────────────
-do_update() {
+update() {
 	if command -v curl >/dev/null 2>&1; then
 		sh -c "$(curl -fsSL "${INSTALLER_SELF_URL}")" -- --yes
 	elif command -v wget >/dev/null 2>&1; then
@@ -534,12 +534,12 @@ COMMAND="${1:-}"
 
 # 'generate' is the default: no args, or first arg is a flag
 if [[ -z "$COMMAND" || "$COMMAND" == --* ]]; then
-	do_generate "$@"
+	generate "$@"
 else
 	shift
 	case "$COMMAND" in
-	generate) do_generate "$@" ;;
-	update) do_update ;;
+	generate) generate "$@" ;;
+	update) update ;;
 	version | -v) echo "${VERSION}" ;;
 	help | -h) usage ;;
 	*)
