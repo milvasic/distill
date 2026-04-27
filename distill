@@ -4,23 +4,32 @@
 
 set -euo pipefail
 
-VERSION="0.2.1"
+VERSION="0.2.2"
 INSTALLER_SELF_URL="https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh"
 
 # ── Colors & logging ──────────────────────────────────────────────────────────
-RED=$'\033[0;31m'
-GREEN=$'\033[0;32m'
-YELLOW=$'\033[0;33m'
-CYAN=$'\033[0;36m'
-BOLD=$'\033[1m'
-RESET=$'\033[0m'
+if [ -t 1 ]; then
+	RED=$'\033[0;31m'
+	GREEN=$'\033[0;32m'
+	YELLOW=$'\033[0;33m'
+	CYAN=$'\033[0;36m'
+	BOLD=$'\033[1m'
+	RESET=$'\033[0m'
+else
+	RED=""
+	GREEN=""
+	YELLOW=""
+	CYAN=""
+	BOLD=""
+	RESET=""
+fi
 
 log() { printf "\n${BOLD}=== %s ===${RESET}\n" "$1" >&2; }
 error() { printf "${RED}ERROR:${RESET} %s\n" "$1" >&2; }
-ok() { printf "${GREEN}%s${RESET}\n" "$1" >&2; }
+ok() { printf "${GREEN}%s${RESET}\n" "$1"; }
 
-# ── Usage ─────────────────────────────────────────────────────────────────────
-usage() {
+# ── Help ──────────────────────────────────────────────────────────────────────
+help() {
 	cat >&2 <<EOF
 A single-file Bash CLI that generates a self-contained 'install.sh' for any CLI tool.
 
@@ -53,7 +62,7 @@ Examples:
     ${CYAN}--asset-url${RESET} https://raw.githubusercontent.com/you/mytool/refs/heads/main/mytool \\
     ${CYAN}--installer-url${RESET} https://raw.githubusercontent.com/you/mytool/refs/heads/main/install.sh
 
-  ${GREEN}distill${RESET} ${YELLOW}generate${RESET} ${CYAN}--name${RESET} mytool ... ${CYAN}--output${RESET} install.sh    ${GREEN}# write to file${RESET}
+  ${GREEN}distill${RESET} ${YELLOW}generate${RESET} ${CYAN}--name${RESET} mytool ... ${CYAN}--output${RESET} install.sh    ${GREEN}# write to file (also writes install-regen.sh)${RESET}
   ${GREEN}distill${RESET} ${YELLOW}update${RESET}                                            ${GREEN}# self-update${RESET}
 EOF
 	exit 1
@@ -124,9 +133,9 @@ log() { printf "\n${BOLD}=== %s ===${RESET}\n" "$1"; }
 error() { printf "${RED}ERROR:${RESET} %s\n" "$1" >&2; }
 ok() { printf "${GREEN}%s${RESET}\n" "$1"; }
 
-# ── Usage ─────────────────────────────────────────────────────────────────────
-usage() {
-  cat <<EOF
+# ── Help ──────────────────────────────────────────────────────────────────────
+help() {
+	cat <<EOF
 ${BINARY_NAME} installer — install, update, or uninstall ${BINARY_NAME}.
 
 Usage:
@@ -147,231 +156,231 @@ Examples:
   # Uninstall
   sh -c "\$(curl -fsSL ${INSTALLER_URL})" -- --uninstall
 EOF
-  exit 1
+	exit 1
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 # Returns 0 if sudo is needed to write to INSTALL_DIR.
 need_sudo() {
-  ! [ -w "$INSTALL_DIR" ]
+	! [ -w "$INSTALL_DIR" ]
 }
 
 # Run a command, prepending sudo only if required.
 run_cmd() {
-  if need_sudo; then
-    sudo "$@"
-  else
-    "$@"
-  fi
+	if need_sudo; then
+		sudo "$@"
+	else
+		"$@"
+	fi
 }
 
 # Fetch a URL, writing content to stdout.
 fetch_url() {
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$1"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -qO- "$1"
-  else
-    error "Neither curl nor wget found. Please install one and try again."
-    exit 1
-  fi
+	if command -v curl >/dev/null 2>&1; then
+		curl -fsSL "$1"
+	elif command -v wget >/dev/null 2>&1; then
+		wget -qO- "$1"
+	else
+		error "Neither curl nor wget found. Please install one and try again."
+		exit 1
+	fi
 }
 
 # Download the asset to a temp file; sets TMPFILE.
 # Optional argument: version string — substituted for {VERSION} in ASSET_URL.
 download_asset() {
-  TMPFILE="$(mktemp)"
-  local url
-  url="$(echo "$ASSET_URL" | sed "s/{VERSION}/${1:-}/g")"
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o "$TMPFILE"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -qO "$TMPFILE" "$url"
-  else
-    error "Neither curl nor wget found. Please install one and try again."
-    exit 1
-  fi
+	TMPFILE="$(mktemp)"
+	local url
+	url="$(echo "$ASSET_URL" | sed "s/{VERSION}/${1:-}/g")"
+	if command -v curl >/dev/null 2>&1; then
+		curl -fsSL "$url" -o "$TMPFILE"
+	elif command -v wget >/dev/null 2>&1; then
+		wget -qO "$TMPFILE" "$url"
+	else
+		error "Neither curl nor wget found. Please install one and try again."
+		exit 1
+	fi
 }
 
 # Extract VERSION="x.y.z" from a shell script file.
 extract_version_script() {
-  grep -m1 '^VERSION=' "$1" | sed 's/^VERSION="//;s/"$//'
+	grep -m1 '^VERSION=' "$1" | sed 's/^VERSION="//;s/"$//'
 }
 
 # Get the remote (latest) version.
 #   script: grepped from the downloaded asset (TMPFILE must already exist)
 #   binary: fetched as plain text from VERSION_URL
 get_remote_version() {
-  case "$ASSET_TYPE" in
-    script)
-      extract_version_script "$TMPFILE"
-      ;;
-    binary)
-      if [ -z "${VERSION_URL:-}" ]; then
-        error "VERSION_URL must be set when ASSET_TYPE=binary."
-        exit 1
-      fi
-      fetch_url "$VERSION_URL"
-      ;;
-  esac
+	case "$ASSET_TYPE" in
+	script)
+		extract_version_script "$TMPFILE"
+		;;
+	binary)
+		if [ -z "${VERSION_URL:-}" ]; then
+			error "VERSION_URL must be set when ASSET_TYPE=binary."
+			exit 1
+		fi
+		fetch_url "$VERSION_URL"
+		;;
+	esac
 }
 
 # Get the version of the currently installed binary.
 #   script: grepped from the installed file
 #   binary: parsed from  binary --version  output (first x.y.z found)
 get_installed_version() {
-  case "$ASSET_TYPE" in
-    script)
-      extract_version_script "$INSTALL_PATH"
-      ;;
-    binary)
-      "$INSTALL_PATH" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
-      ;;
-  esac
+	case "$ASSET_TYPE" in
+	script)
+		extract_version_script "$INSTALL_PATH"
+		;;
+	binary)
+		"$INSTALL_PATH" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
+		;;
+	esac
 }
 
 # Compare two semver strings (X.Y.Z). Prints: greater | lesser | equal.
 version_compare() {
-  local v1="$1" v2="$2"
+	local v1="$1" v2="$2"
 
-  if [ "$v1" = "$v2" ]; then
-    echo "equal"
-    return
-  fi
+	if [ "$v1" = "$v2" ]; then
+		echo "equal"
+		return
+	fi
 
-  local i n1 n2
-  for i in 1 2 3; do
-    n1="$(echo "$v1" | cut -d. -f"$i")"
-    n2="$(echo "$v2" | cut -d. -f"$i")"
-    n1="${n1:-0}"
-    n2="${n2:-0}"
-    if [ "$n1" -gt "$n2" ]; then
-      echo "greater"
-      return
-    elif [ "$n1" -lt "$n2" ]; then
-      echo "lesser"
-      return
-    fi
-  done
+	local i n1 n2
+	for i in 1 2 3; do
+		n1="$(echo "$v1" | cut -d. -f"$i")"
+		n2="$(echo "$v2" | cut -d. -f"$i")"
+		n1="${n1:-0}"
+		n2="${n2:-0}"
+		if [ "$n1" -gt "$n2" ]; then
+			echo "greater"
+			return
+		elif [ "$n1" -lt "$n2" ]; then
+			echo "lesser"
+			return
+		fi
+	done
 
-  echo "equal"
+	echo "equal"
 }
 
 # ── Install / Update ──────────────────────────────────────────────────────────
 install() {
-  log "${BINARY_NAME} installer"
+	log "${BINARY_NAME} installer"
 
-  # Sequencing differs by type: scripts are downloaded first (version is inside
-  # the file); binaries need the version upfront to build the download URL.
-  local remote_version
-  case "$ASSET_TYPE" in
-    script)
-      download_asset
-      trap 'rm -f "$TMPFILE"' EXIT
-      remote_version="$(get_remote_version)"
-      ;;
-    binary)
-      remote_version="$(get_remote_version)"
-      download_asset "$remote_version"
-      trap 'rm -f "$TMPFILE"' EXIT
-      ;;
-  esac
+	# Sequencing differs by type: scripts are downloaded first (version is inside
+	# the file); binaries need the version upfront to build the download URL.
+	local remote_version
+	case "$ASSET_TYPE" in
+	script)
+		download_asset
+		trap 'rm -f "$TMPFILE"' EXIT
+		remote_version="$(get_remote_version)"
+		;;
+	binary)
+		remote_version="$(get_remote_version)"
+		download_asset "$remote_version"
+		trap 'rm -f "$TMPFILE"' EXIT
+		;;
+	esac
 
-  if [ -z "$remote_version" ]; then
-    error "Could not determine version from remote."
-    exit 1
-  fi
+	if [ -z "$remote_version" ]; then
+		error "Could not determine version from remote."
+		exit 1
+	fi
 
-  # ── Fresh install ──────────────────────────────────────────────────────
-  if [ ! -f "$INSTALL_PATH" ]; then
-    run_cmd install -m 755 "$TMPFILE" "$INSTALL_PATH"
-    ok "${BINARY_NAME} v${remote_version} installed to ${INSTALL_PATH}"
-    return
-  fi
+	# ── Fresh install ──────────────────────────────────────────────────────
+	if [ ! -f "$INSTALL_PATH" ]; then
+		run_cmd install -m 755 "$TMPFILE" "$INSTALL_PATH"
+		ok "${BINARY_NAME} v${remote_version} installed to ${INSTALL_PATH}"
+		return
+	fi
 
-  # ── Already installed — compare versions ───────────────────────────────
-  local installed_version
-  installed_version="$(get_installed_version)"
+	# ── Already installed — compare versions ───────────────────────────────
+	local installed_version
+	installed_version="$(get_installed_version)"
 
-  if [ -z "$installed_version" ]; then
-    error "Could not determine version of installed ${BINARY_NAME} at ${INSTALL_PATH}."
-    exit 1
-  fi
+	if [ -z "$installed_version" ]; then
+		error "Could not determine version of installed ${BINARY_NAME} at ${INSTALL_PATH}."
+		exit 1
+	fi
 
-  local cmp
-  cmp="$(version_compare "$remote_version" "$installed_version")"
+	local cmp
+	cmp="$(version_compare "$remote_version" "$installed_version")"
 
-  case "$cmp" in
-    equal)
-      ok "${BINARY_NAME} v${installed_version} is already installed and up to date."
-      ;;
-    greater)
-      if [ "$auto_yes" = true ]; then
-        run_cmd install -m 755 "$TMPFILE" "$INSTALL_PATH"
-        ok "${BINARY_NAME} updated from v${installed_version} to v${remote_version}."
-      elif [ -t 0 ]; then
-        printf "Update %s from ${BOLD}v%s${RESET} to ${BOLD}v%s${RESET}? [y/N] " \
-          "$BINARY_NAME" "$installed_version" "$remote_version"
-        read -r reply
-        case "$reply" in
-          [Yy] | [Yy][Ee][Ss])
-            run_cmd install -m 755 "$TMPFILE" "$INSTALL_PATH"
-            ok "${BINARY_NAME} updated from v${installed_version} to v${remote_version}."
-            ;;
-          *)
-            echo "Update cancelled."
-            ;;
-        esac
-      else
-        error "A newer version (v${remote_version}) is available (installed: v${installed_version})."
-        error "Run interactively or pass --yes to auto-approve the update."
-        exit 1
-      fi
-      ;;
-    lesser)
-      error "Installed version (v${installed_version}) is newer than remote (v${remote_version}). Aborting."
-      exit 1
-      ;;
-  esac
+	case "$cmp" in
+	equal)
+		ok "${BINARY_NAME} v${installed_version} is already installed and up to date."
+		;;
+	greater)
+		if [ "$auto_yes" = true ]; then
+			run_cmd install -m 755 "$TMPFILE" "$INSTALL_PATH"
+			ok "${BINARY_NAME} updated from v${installed_version} to v${remote_version}."
+		elif [ -t 0 ]; then
+			printf "Update %s from ${BOLD}v%s${RESET} to ${BOLD}v%s${RESET}? [y/N] " \
+				"$BINARY_NAME" "$installed_version" "$remote_version"
+			read -r reply
+			case "$reply" in
+			[Yy] | [Yy][Ee][Ss])
+				run_cmd install -m 755 "$TMPFILE" "$INSTALL_PATH"
+				ok "${BINARY_NAME} updated from v${installed_version} to v${remote_version}."
+				;;
+			*)
+				echo "Update cancelled."
+				;;
+			esac
+		else
+			error "A newer version (v${remote_version}) is available (installed: v${installed_version})."
+			error "Run interactively or pass --yes to auto-approve the update."
+			exit 1
+		fi
+		;;
+	lesser)
+		error "Installed version (v${installed_version}) is newer than remote (v${remote_version}). Aborting."
+		exit 1
+		;;
+	esac
 }
 
 # ── Uninstall ─────────────────────────────────────────────────────────────────
 uninstall() {
-  log "${BINARY_NAME} uninstaller"
+	log "${BINARY_NAME} uninstaller"
 
-  if [ ! -f "$INSTALL_PATH" ]; then
-    echo "${BINARY_NAME} is not installed at ${INSTALL_PATH}. Nothing to do."
-    return
-  fi
+	if [ ! -f "$INSTALL_PATH" ]; then
+		echo "${BINARY_NAME} is not installed at ${INSTALL_PATH}. Nothing to do."
+		return
+	fi
 
-  run_cmd rm -f "$INSTALL_PATH"
-  ok "${BINARY_NAME} removed from ${INSTALL_PATH}."
+	run_cmd rm -f "$INSTALL_PATH"
+	ok "${BINARY_NAME} removed from ${INSTALL_PATH}."
 
-  local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/${BINARY_NAME}"
-  if [ -d "$config_dir" ]; then
-    local remove_config=false
+	local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/${BINARY_NAME}"
+	if [ -d "$config_dir" ]; then
+		local remove_config=false
 
-    if [ "$auto_yes" = true ]; then
-      remove_config=true
-    elif [ -t 0 ]; then
-      printf "Remove configuration directory at ${BOLD}%s${RESET}? [y/N] " "$config_dir"
-      read -r reply
-      case "$reply" in
-        [Yy] | [Yy][Ee][Ss])
-          remove_config=true
-          ;;
-      esac
-    else
-      error "Configuration directory exists at ${config_dir}"
-      error "Run interactively or pass --yes to auto-remove it."
-    fi
+		if [ "$auto_yes" = true ]; then
+			remove_config=true
+		elif [ -t 0 ]; then
+			printf "Remove configuration directory at ${BOLD}%s${RESET}? [y/N] " "$config_dir"
+			read -r reply
+			case "$reply" in
+			[Yy] | [Yy][Ee][Ss])
+				remove_config=true
+				;;
+			esac
+		else
+			error "Configuration directory exists at ${config_dir}"
+			error "Run interactively or pass --yes to auto-remove it."
+		fi
 
-    if [ "$remove_config" = true ]; then
-      rm -rf "$config_dir"
-      ok "Configuration directory removed: ${config_dir}"
-    fi
-  fi
+		if [ "$remove_config" = true ]; then
+			rm -rf "$config_dir"
+			ok "Configuration directory removed: ${config_dir}"
+		fi
+	fi
 }
 
 # ── Argument parsing & dispatch ───────────────────────────────────────────────
@@ -382,10 +391,10 @@ for arg in "$@"; do
 	case "$arg" in
 	--uninstall) action="uninstall" ;;
 	--yes | -y) auto_yes=true ;;
-	--help | -h) usage ;;
+	--help | -h) help ;;
 	*)
 		error "Unknown option: $arg"
-		usage
+		help
 		;;
 	esac
 done
@@ -443,10 +452,10 @@ generate() {
 			output_file="${2:?--output requires an argument}"
 			shift 2
 			;;
-		--help | -h) usage ;;
+		--help | -h) help ;;
 		*)
 			error "Unknown option: $1"
-			usage
+			help
 			;;
 		esac
 	done
@@ -504,7 +513,7 @@ generate() {
 
 	[ "$_valid" = false ] && {
 		echo >&2
-		usage
+		help
 	}
 
 	# ── Generate ────────────────────────────────────────────────────────────
@@ -512,6 +521,22 @@ generate() {
 		generate_install_sh >"$output_file"
 		chmod +x "$output_file"
 		ok "Generated: ${output_file}"
+
+		local regen_file="${output_file%.sh}-regen.sh"
+		{
+			printf '#!/usr/bin/env bash\n'
+			printf '# Regenerate %s with distill\n\n' "$output_file"
+			printf 'distill generate \\\n'
+			printf '\t--name "%s" \\\n' "$binary_name"
+			printf '\t--asset-url "%s" \\\n' "$asset_url"
+			printf '\t--installer-url "%s" \\\n' "$installer_url"
+			printf '\t--install-dir "%s" \\\n' "$install_dir"
+			printf '\t--asset-type "%s" \\\n' "$asset_type"
+			[ -n "$version_url" ] && printf '\t--version-url "%s" \\\n' "$version_url"
+			printf '\t--output %s\n' "$output_file"
+		} >"$regen_file"
+		chmod +x "$regen_file"
+		ok "Generated: ${regen_file}"
 	else
 		generate_install_sh
 	fi
@@ -540,11 +565,11 @@ else
 	case "$COMMAND" in
 	generate) generate "$@" ;;
 	update) update ;;
-	version | -v) echo "${VERSION}" ;;
-	help | -h) usage ;;
+	version | --version | -v) echo "${VERSION}" ;;
+	help | --help | -h) help ;;
 	*)
 		error "Unknown command: ${COMMAND}"
-		usage
+		help
 		;;
 	esac
 fi
