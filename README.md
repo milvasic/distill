@@ -56,7 +56,7 @@ interactive prompt for each parameter:
 ```
 $ distill generate
 
-=== distill v0.3.1 ===
+=== distill v0.3.2 ===
 Press Enter to accept the value shown in [brackets].
 
 Binary name: mytool
