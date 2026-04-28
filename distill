@@ -4,8 +4,46 @@
 
 set -euo pipefail
 
-VERSION="0.2.2"
-INSTALLER_SELF_URL="https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh"
+VERSION="0.3.0"
+
+# ── Help ──────────────────────────────────────────────────────────────────────
+help() {
+	colorize >&2 <<'EOF'
+A single-file Bash CLI that generates a self-contained 'install.sh' for any CLI tool.
+
+Usage:
+  distill [generate-flags]  # 'generate' is the default command
+  distill <command> [flags]
+
+Commands:
+  generate                  # Generate an install.sh for a CLI tool (default)
+  update                    # Update distill to the latest version
+  version, --version, -v    # Print version
+  help, --help, -h          # Show this message
+
+Generate flags:
+  --name <name>             # Binary name                           (required)
+  --asset-url <url>         # Direct URL to the downloadable asset  (required)
+  --installer-url <url>     # URL to the generated install.sh       (required)
+  --install-dir <dir>       # Installation directory                (default: /usr/local/bin)
+  --asset-type <type>       # Asset type: script | binary           (default: script)
+  --version-url <url>       # Plain-text version endpoint           (required for binary)
+
+When called without arguments in an interactive terminal, there will be a prompt for each flag value.
+
+Examples:
+  distill generate          # interactive wizard
+  distill                   # generate is implied with no args
+  distill update            # self-update
+
+  # non-interactive, writes to install.sh
+  distill generate --name mytool \
+    --asset-url https://raw.githubusercontent.com/you/mytool/refs/heads/main/mytool \
+    --installer-url https://raw.githubusercontent.com/you/mytool/refs/heads/main/install.sh
+
+EOF
+	exit 1
+}
 
 # ── Colors & logging ──────────────────────────────────────────────────────────
 if [ -t 1 ]; then
@@ -28,44 +66,27 @@ log() { printf "\n${BOLD}=== %s ===${RESET}\n" "$1" >&2; }
 error() { printf "${RED}ERROR:${RESET} %s\n" "$1" >&2; }
 ok() { printf "${GREEN}%s${RESET}\n" "$1"; }
 
-# ── Help ──────────────────────────────────────────────────────────────────────
-help() {
-	cat >&2 <<EOF
-A single-file Bash CLI that generates a self-contained 'install.sh' for any CLI tool.
+# ── Help colorizer ───────────────────────────────────────────────────────────
+colorize_line() {
+	sed \
+		-e "s/\\(^\\|[^[:alnum:]_'-]\\)\\(distill\\)\\([^[:alnum:]_'-]\\|$\\)/\\1${GREEN}\\2${RESET}\\3/g" \
+		-e "s/\\(^\\|[^[:alnum:]_'-]\\)\\(generate\\|update\\|version\\|help\\)\\([^[:alnum:]_'-]\\|$\\)/\\1${YELLOW}\\2${RESET}\\3/g" \
+		-e "s/--[a-z][a-z-]*/${CYAN}&${RESET}/g" \
+		-e "s/\([ ,]\)\(-[a-z]\)/\\1${CYAN}\\2${RESET}/g"
+}
 
-Usage:
-  ${GREEN}distill${RESET} ${YELLOW}<command>${RESET} ${CYAN}[flags]${RESET}
-  ${GREEN}distill${RESET} ${CYAN}[generate flags]${RESET}   ${GREEN}# 'generate' is the default command${RESET}
-
-Commands:
-  ${YELLOW}generate${RESET}              - Generate an install.sh for a CLI tool (default)
-  ${YELLOW}update${RESET}                - Update distill to the latest version
-  ${YELLOW}version${RESET}, ${CYAN}-v${RESET}           - Print version
-  ${YELLOW}help${RESET}, ${CYAN}-h${RESET}              - Show this message
-
-Generate flags:
-  ${CYAN}--name${RESET} NAME           - Binary name (required)
-  ${CYAN}--asset-url${RESET} URL       - Direct URL to the downloadable asset (required)
-  ${CYAN}--installer-url${RESET} URL   - URL to the generated install.sh (required)
-  ${CYAN}--install-dir${RESET} DIR     - Installation directory          (default: /usr/local/bin)
-  ${CYAN}--asset-type${RESET} TYPE     - Asset type: script | binary     (default: script)
-  ${CYAN}--version-url${RESET} URL     - Plain-text version endpoint     (required for binary)
-  ${CYAN}--output${RESET} FILE         - Write to FILE instead of stdout
-
-When called without arguments in an interactive terminal, distill prompts for each generate value.
-
-Examples:
-  ${GREEN}distill${RESET} ${YELLOW}generate${RESET}                          ${GREEN}# interactive wizard${RESET}
-  ${GREEN}distill${RESET}                                   ${GREEN}# generate is implied with no args${RESET}
-
-  ${GREEN}distill${RESET} ${YELLOW}generate${RESET} ${CYAN}--name${RESET} mytool \\          ${GREEN}# non-interactive, output to stdout${RESET}
-    ${CYAN}--asset-url${RESET} https://raw.githubusercontent.com/you/mytool/refs/heads/main/mytool \\
-    ${CYAN}--installer-url${RESET} https://raw.githubusercontent.com/you/mytool/refs/heads/main/install.sh
-
-  ${GREEN}distill${RESET} ${YELLOW}generate${RESET} ${CYAN}--name${RESET} mytool ... ${CYAN}--output${RESET} install.sh    ${GREEN}# write to file (also writes install-regen.sh)${RESET}
-  ${GREEN}distill${RESET} ${YELLOW}update${RESET}                                            ${GREEN}# self-update${RESET}
-EOF
-	exit 1
+colorize() {
+	local line pre post
+	while IFS= read -r line; do
+		if [[ "$line" == *'#'* ]]; then
+			pre="${line%%#*}"
+			post="${line#*#}"
+			pre="$(printf '%s' "$pre" | colorize_line)"
+			printf '%s%s#%s%s\n' "$pre" "$GREEN" "$post" "$RESET"
+		else
+			printf '%s\n' "$line" | colorize_line
+		fi
+	done
 }
 
 # ── Interactive prompt ─────────────────────────────────────────────────────────
@@ -89,7 +110,7 @@ prompt() {
 generate_install_sh() {
 	# Part 1: CONFIG — distill's variables are expanded here, producing user values.
 	cat <<HEADER
-#!/bin/sh
+#!/usr/bin/env bash
 # Generated by distill v${VERSION} — https://github.com/milvasic/distill
 
 set -eu
@@ -123,40 +144,75 @@ HEADER
 
 INSTALL_PATH="${INSTALL_DIR}/${BINARY_NAME}"
 
-# ── Colors & logging ──────────────────────────────────────────────────────────
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-BOLD="\033[1m"
-RESET="\033[0m"
-
-log() { printf "\n${BOLD}=== %s ===${RESET}\n" "$1"; }
-error() { printf "${RED}ERROR:${RESET} %s\n" "$1" >&2; }
-ok() { printf "${GREEN}%s${RESET}\n" "$1"; }
-
 # ── Help ──────────────────────────────────────────────────────────────────────
 help() {
-	cat <<EOF
+	colorize >&2 <<'EOF'
 ${BINARY_NAME} installer — install, update, or uninstall ${BINARY_NAME}.
 
 Usage:
   install.sh [options]
 
 Options:
-  --uninstall   Remove ${BINARY_NAME} from ${INSTALL_DIR}
-  --yes, -y     Auto-approve upgrade (useful for non-interactive / CI)
-  --help        Show this message
+  --uninstall   # Remove ${BINARY_NAME} from ${INSTALL_DIR}
+  --yes, -y     # Auto-approve upgrade (useful for non-interactive / CI)
+  --help        # Show this message
 
 Examples:
   # Install or update interactively
-  sh -c "\$(curl -fsSL ${INSTALLER_URL})"
+  bash -c "\$(curl -fsSL ${INSTALLER_URL})"
 
   # Install or update non-interactively
-  sh -c "\$(curl -fsSL ${INSTALLER_URL})" -- --yes
+  bash -c "\$(curl -fsSL ${INSTALLER_URL})" -- --yes
 
   # Uninstall
-  sh -c "\$(curl -fsSL ${INSTALLER_URL})" -- --uninstall
+  bash -c "\$(curl -fsSL ${INSTALLER_URL})" -- --uninstall
+
 EOF
 	exit 1
+}
+
+# ── Colors & logging ──────────────────────────────────────────────────────────
+if [ -t 1 ]; then
+	RED=$'\033[0;31m'
+	GREEN=$'\033[0;32m'
+	YELLOW=$'\033[0;33m'
+	CYAN=$'\033[0;36m'
+	BOLD=$'\033[1m'
+	RESET=$'\033[0m'
+else
+	RED=""
+	GREEN=""
+	YELLOW=""
+	CYAN=""
+	BOLD=""
+	RESET=""
+fi
+
+log() { printf "\n${BOLD}=== %s ===${RESET}\n" "$1" >&2; }
+error() { printf "${RED}ERROR:${RESET} %s\n" "$1" >&2; }
+ok() { printf "${GREEN}%s${RESET}\n" "$1"; }
+
+# ── Help colorizer ───────────────────────────────────────────────────────────
+colorize_line() {
+	sed \
+		-e "s/\\(^\\|[^[:alnum:]_'-]\\)\\(distill\\)\\([^[:alnum:]_'-]\\|$\\)/\\1${GREEN}\\2${RESET}\\3/g" \
+		-e "s/\\(^\\|[^[:alnum:]_'-]\\)\\(generate\\|update\\|version\\|help\\)\\([^[:alnum:]_'-]\\|$\\)/\\1${YELLOW}\\2${RESET}\\3/g" \
+		-e "s/--[a-z][a-z-]*/${CYAN}&${RESET}/g" \
+		-e "s/\([ ,]\)\(-[a-z]\)/\\1${CYAN}\\2${RESET}/g"
+}
+
+colorize() {
+	local line pre post
+	while IFS= read -r line; do
+		if [[ "$line" == *'#'* ]]; then
+			pre="${line%%#*}"
+			post="${line#*#}"
+			pre="$(printf '%s' "$pre" | colorize_line)"
+			printf '%s%s#%s%s\n' "$pre" "$GREEN" "$post" "$RESET"
+		else
+			printf '%s\n' "$line" | colorize_line
+		fi
+	done
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -414,7 +470,6 @@ generate() {
 	local asset_url=""
 	local installer_url=""
 	local version_url=""
-	local output_file=""
 
 	# Track which optional-with-defaults flags were explicitly supplied
 	local install_dir_set=false
@@ -448,10 +503,6 @@ generate() {
 			version_url="${2:?--version-url requires an argument}"
 			shift 2
 			;;
-		--output)
-			output_file="${2:?--output requires an argument}"
-			shift 2
-			;;
 		--help | -h) help ;;
 		*)
 			error "Unknown option: $1"
@@ -464,8 +515,20 @@ generate() {
 	# Require both stdin AND stdout to be TTYs: if stdout is piped, the
 	# generated script is being consumed directly and prompts would corrupt it.
 	if [ -t 0 ] && [ -t 1 ]; then
-		log "distill v${VERSION}"
-		printf "Press Enter to accept the value shown in [brackets].\n\n" >&2
+		local needs_prompt=false
+		[ -z "$binary_name" ] && needs_prompt=true
+		[ -z "$asset_url" ] && needs_prompt=true
+		[ -z "$installer_url" ] && needs_prompt=true
+		[ "$install_dir_set" = false ] && needs_prompt=true
+		[ "$asset_type_set" = false ] && needs_prompt=true
+		if [ "$asset_type" = "binary" ] && [ -z "$version_url" ]; then
+			needs_prompt=true
+		fi
+
+		if [ "$needs_prompt" = true ]; then
+			log "distill v${VERSION}"
+			printf "Press Enter to accept the value shown in [brackets].\n\n" >&2
+		fi
 
 		[ -z "$binary_name" ] && prompt binary_name "Binary name"
 		[ -z "$asset_url" ] && prompt asset_url "Asset URL"
@@ -517,37 +580,38 @@ generate() {
 	}
 
 	# ── Generate ────────────────────────────────────────────────────────────
-	if [ -n "$output_file" ]; then
-		generate_install_sh >"$output_file"
-		chmod +x "$output_file"
-		ok "Generated: ${output_file}"
+	generate_install_sh >install.sh
+	chmod +x install.sh
+	ok "Generated: install.sh"
 
-		local regen_file="${output_file%.sh}-regen.sh"
-		{
-			printf '#!/usr/bin/env bash\n'
-			printf '# Regenerate %s with distill\n\n' "$output_file"
-			printf 'distill generate \\\n'
-			printf '\t--name "%s" \\\n' "$binary_name"
-			printf '\t--asset-url "%s" \\\n' "$asset_url"
-			printf '\t--installer-url "%s" \\\n' "$installer_url"
-			printf '\t--install-dir "%s" \\\n' "$install_dir"
+	local regen_file="install-regen.sh"
+	{
+		printf '#!/usr/bin/env bash\n'
+		printf '# Regenerate install.sh with distill\n'
+		printf '%s\n\n' "# Generated by distill v${VERSION} - https://github.com/milvasic/distill"
+		printf 'distill generate \\\n'
+		printf '\t--name "%s" \\\n' "$binary_name"
+		printf '\t--asset-url "%s" \\\n' "$asset_url"
+		printf '\t--installer-url "%s" \\\n' "$installer_url"
+		printf '\t--install-dir "%s" \\\n' "$install_dir"
+		if [ -n "$version_url" ]; then
 			printf '\t--asset-type "%s" \\\n' "$asset_type"
-			[ -n "$version_url" ] && printf '\t--version-url "%s" \\\n' "$version_url"
-			printf '\t--output %s\n' "$output_file"
-		} >"$regen_file"
-		chmod +x "$regen_file"
-		ok "Generated: ${regen_file}"
-	else
-		generate_install_sh
-	fi
+			printf '\t--version-url "%s"\n' "$version_url"
+		else
+			printf '\t--asset-type "%s"\n' "$asset_type"
+		fi
+	} >"$regen_file"
+	chmod +x "$regen_file"
+	ok "Generated: ${regen_file}"
 }
 
 # ── Update command ────────────────────────────────────────────────────────────
+INSTALLER_SELF_URL="https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh"
 update() {
 	if command -v curl >/dev/null 2>&1; then
-		sh -c "$(curl -fsSL "${INSTALLER_SELF_URL}")" -- --yes
+		bash -c "$(curl -fsSL "${INSTALLER_SELF_URL}")" -- --yes
 	elif command -v wget >/dev/null 2>&1; then
-		sh -c "$(wget -qO- "${INSTALLER_SELF_URL}")" -- --yes
+		bash -c "$(wget -qO- "${INSTALLER_SELF_URL}")" -- --yes
 	else
 		error "Neither curl nor wget found. Please install one and try again."
 		exit 1
