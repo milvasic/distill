@@ -12,7 +12,7 @@ upgrades, and uninstallation of `distill` to `/usr/local/bin`.
 ## Code Style
 
 - `distill` itself: Bash with `set -euo pipefail`, `#!/usr/bin/env bash`
-- Generated `install.sh`: POSIX sh with `set -eu`, `#!/bin/sh`
+- Generated `install.sh`: Bash with `set -eu`, `#!/usr/bin/env bash`
 - Functions use snake_case
 - Color-coded output via ANSI escape sequences (`log`, `error`, `ok` helpers)
 - All diagnostic output goes to stderr; generated script content goes to stdout
@@ -23,7 +23,7 @@ upgrades, and uninstallation of `distill` to `/usr/local/bin`.
 - **Two-section generator**: `generate_install_sh()` uses two heredocs back to back:
   - `<<HEADER` (double-quoted): expands distill's variables to produce the CONFIG block
   - `<<'ENGINE'` (single-quoted): outputs the engine verbatim — nothing is expanded by distill
-- **Engine portability**: The embedded engine is POSIX sh; it runs on dash, bash, and ash
+- **Engine portability**: The embedded engine is Bash with POSIX conventions where practical
 - **Subcommand model**: `generate` (default), `update`, `version`, `help`; if the
   first arg starts with `--` or is absent, `generate` is implied
 - **Interactive + non-interactive**: `generate` prompts for missing values when both
@@ -36,14 +36,14 @@ upgrades, and uninstallation of `distill` to `/usr/local/bin`.
 - `VERSION` in `distill` reflects distill's own version, not the generated tool's version
 - The `generate_install_sh()` function is the single source of truth for the engine;
   `install.sh` in this repo is a concrete instantiation of it (distill dogfooding itself)
-- When the engine changes, regenerate `install.sh` with:
+- When the engine changes, regenerate `install.sh` and `install-regen.sh` with:
   ```sh
   distill generate \
     --name distill \
     --asset-url https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/distill \
-    --installer-url https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh \
-    --output install.sh
+    --installer-url https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh
   ```
+  This creates both `install.sh` (the installer) and `install-regen.sh` (a helper to regenerate it)
 - Update `README.md` whenever the script changes (new options, new behavior)
 - Format all Markdown files with `prettier` after editing (`prettier --write *.md`)
 
@@ -64,7 +64,8 @@ There is no test suite. After making changes, verify syntax with:
 
 ```sh
 bash -n distill
-sh -n install.sh
+bash -n install.sh
+bash -n install-regen.sh
 ```
 
 Then smoke-test by running:
@@ -87,10 +88,17 @@ Then smoke-test by running:
 ./distill help
 ```
 
-Verify the generated output is valid sh:
+Verify the generated output is valid Bash:
 
 ```sh
 ./distill generate --name foo \
   --asset-url https://example.com/foo \
-  --installer-url https://example.com/install.sh | sh -n
+  --installer-url https://example.com/install.sh | bash -n
+```
+
+Verify the regeneration helper script is created:
+
+```sh
+ls -la install-regen.sh
+bash install-regen.sh  # Should regenerate install.sh
 ```

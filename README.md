@@ -14,19 +14,19 @@ distill. Copy it into your repo, commit it, and ship it.
 ## Install distill
 
 ```sh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh)"
 ```
 
 Non-interactive (CI):
 
 ```sh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh)" -- --yes
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh)" -- --yes
 ```
 
 Uninstall:
 
 ```sh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh)" -- --uninstall
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/milvasic/distill/refs/heads/main/install.sh)" -- --uninstall
 ```
 
 ## Usage
@@ -38,12 +38,12 @@ distill [generate flags]   # 'generate' is the default command
 
 ### Commands
 
-| Command         | Description                             |
-| --------------- | --------------------------------------- |
-| `generate`      | Generate an `install.sh` for a CLI tool |
-| `update`        | Update distill to the latest version    |
-| `version`, `-v` | Print version                           |
-| `help`, `-h`    | Show help                               |
+| Command                  | Description                             |
+| ------------------------ | --------------------------------------- |
+| `generate`               | Generate an `install.sh` for a CLI tool |
+| `update`                 | Update distill to the latest version    |
+| `version, --version, -v` | Print version                           |
+| `help, --help, -h`       | Show help                               |
 
 `generate` is the default — if the first argument starts with `--` (or there
 are no arguments), distill behaves as if you typed `distill generate`.
@@ -56,7 +56,7 @@ interactive prompt for each parameter:
 ```
 $ distill generate
 
-=== distill v0.2.1 ===
+=== distill v0.3.1 ===
 Press Enter to accept the value shown in [brackets].
 
 Binary name: mytool
@@ -66,11 +66,10 @@ Install directory [/usr/local/bin]:
 Asset type (script/binary) [script]:
 ```
 
-Output goes to stdout; redirect it or use `--output`:
+The command generates `install.sh` in the current directory:
 
 ```sh
-distill generate > install.sh
-chmod +x install.sh
+distill generate
 ```
 
 ### Non-interactive (flags)
@@ -79,8 +78,7 @@ chmod +x install.sh
 distill generate \
   --name mytool \
   --asset-url https://raw.githubusercontent.com/you/mytool/refs/heads/main/mytool \
-  --installer-url https://raw.githubusercontent.com/you/mytool/refs/heads/main/install.sh \
-  --output install.sh
+  --installer-url https://raw.githubusercontent.com/you/mytool/refs/heads/main/install.sh
 ```
 
 ### Self-update
@@ -99,29 +97,23 @@ distill update
 | `--install-dir DIR`   | Installation directory                    | `/usr/local/bin`        |
 | `--asset-type TYPE`   | `script` or `binary`                      | `script`                |
 | `--version-url URL`   | Plain-text version endpoint (binary only) | _(required for binary)_ |
-| `--output FILE`       | Write to file instead of stdout           | stdout                  |
 
 ## What gets generated
 
-The generated `install.sh` is a single POSIX sh script with two clearly
-delimited sections:
+The `distill generate` command creates two files:
 
-**CONFIG** — the 5–6 variables you provided. Edit this block directly or
-regenerate with distill if parameters change.
+**`install.sh`** — a single Bash script with two clearly delimited sections:
 
-**ENGINE** — a copy-paste-stable block that handles all install logic:
-sudo detection, curl/wget fallback, semver comparison, interactive upgrade
-prompts, and config directory cleanup on uninstall. Never edit this block
-manually.
+- **CONFIG** — the 5–6 variables you provided. Edit this block directly or regenerate with distill if parameters change.
+- **ENGINE** — a copy-paste-stable block that handles all install logic: sudo detection, curl/wget fallback, semver comparison, interactive upgrade prompts, and config directory cleanup on uninstall. Never edit this block manually.
 
-The regenerate command is stamped into the generated file as a comment, so
-you never need to remember the original parameters:
+**`install-regen.sh`** — a helper script that regenerates `install.sh` using the exact parameters you provided, so you never need to remember them.
+
+The regenerate command is documented in `install-regen.sh`, which you can commit alongside `install.sh`:
 
 ```sh
-# CONFIG — edit this block or regenerate with:
-#   distill generate --name "mytool" \
-#     --asset-url "https://..." \
-#     --installer-url "https://..."
+# Run this to regenerate install.sh:
+bash install-regen.sh
 ```
 
 ## Asset types
