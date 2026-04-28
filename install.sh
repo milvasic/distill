@@ -32,9 +32,9 @@ Usage:
   install.sh [options]
 
 Options:
-  --uninstall   # Remove ${BINARY_NAME} from ${INSTALL_DIR}
-  --yes, -y     # Auto-approve upgrade (useful for non-interactive / CI)
-  --help        # Show this message
+  --uninstall           # Remove ${BINARY_NAME} from ${INSTALL_DIR}
+  --yes, -y             # Auto-approve upgrade (useful for non-interactive / CI)
+  help, --help, -h      # Show this message
 
 Examples:
   # Install or update interactively
@@ -74,8 +74,8 @@ ok() { printf "${GREEN}%s${RESET}\n" "$1"; }
 # ── Help colorizer ───────────────────────────────────────────────────────────
 colorize_line() {
 	sed \
-		-e "s/\\(^\\|[^[:alnum:]_'-]\\)\\(distill\\)\\([^[:alnum:]_'-]\\|$\\)/\\1${GREEN}\\2${RESET}\\3/g" \
-		-e "s/\\(^\\|[^[:alnum:]_'-]\\)\\(generate\\|update\\|version\\|help\\)\\([^[:alnum:]_'-]\\|$\\)/\\1${YELLOW}\\2${RESET}\\3/g" \
+		-e "s/\\(^\\|[^[:alnum:]_'-]\\)\\(install.sh\\)\\([^[:alnum:]_'-]\\|$\\)/\\1${GREEN}\\2${RESET}\\3/g" \
+		-e "s/\\(^\\|[^[:alnum:]_'-]\\)\\(help\\)\\([^[:alnum:]_'-]\\|$\\)/\\1${YELLOW}\\2${RESET}\\3/g" \
 		-e "s/--[a-z][a-z-]*/${CYAN}&${RESET}/g" \
 		-e "s/\([ ,]\)\(-[a-z]\)/\\1${CYAN}\\2${RESET}/g"
 }
@@ -326,7 +326,7 @@ for arg in "$@"; do
 	case "$arg" in
 	--uninstall) action="uninstall" ;;
 	--yes | -y) auto_yes=true ;;
-	--help | -h) help ;;
+	help | --help | -h) help ;;
 	*)
 		error "Unknown option: $arg"
 		help
