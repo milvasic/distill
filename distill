@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="0.3.2"
+VERSION="0.4.0"
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 help() {
@@ -621,15 +621,19 @@ update() {
 # ── Main dispatch ─────────────────────────────────────────────────────────────
 COMMAND="${1:-}"
 
-# 'generate' is the default: no args, or first arg is a flag
+# 'generate' is the default: no args, or first arg is a generate flag.
+# --version and -v are intercepted before the --* → generate routing.
 if [[ -z "$COMMAND" || "$COMMAND" == --* ]]; then
-	generate "$@"
+	case "$COMMAND" in
+	--version | -v) echo "${VERSION}" ;;
+	*) generate "$@" ;;
+	esac
 else
 	shift
 	case "$COMMAND" in
 	generate) generate "$@" ;;
 	update) update ;;
-	version | --version | -v) echo "${VERSION}" ;;
+	version | -v) echo "${VERSION}" ;;
 	help | --help | -h) help ;;
 	*)
 		error "Unknown command: ${COMMAND}"
