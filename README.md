@@ -48,6 +48,7 @@ distill [generate flags]   # 'generate' is the default command
 | ------------------------ | --------------------------------------- |
 | `generate`               | Generate an `install.sh` for a CLI tool |
 | `update`                 | Update distill to the latest version    |
+| `completions <shell>`    | Print shell completion script           |
 | `version, --version, -v` | Print version                           |
 | `help, --help, -h`       | Show help                               |
 
@@ -91,6 +92,18 @@ distill generate \
 
 ```sh
 distill update
+```
+
+### Shell completions
+
+Print and evaluate the completion script for your shell:
+
+```sh
+# Bash — add to ~/.bashrc
+eval "$(distill completions bash)"
+
+# Zsh — add to ~/.zshrc
+eval "$(distill completions zsh)"
 ```
 
 ### Generate flags
