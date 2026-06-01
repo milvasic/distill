@@ -100,10 +100,10 @@ Print and evaluate the completion script for your shell:
 
 ```sh
 # Bash — add to ~/.bashrc
-eval "$(distill completions bash)"
+source <(distill completions bash)
 
 # Zsh — add to ~/.zshrc
-eval "$(distill completions zsh)"
+source <(distill completions zsh)
 ```
 
 ### Generate flags
