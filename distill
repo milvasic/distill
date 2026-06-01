@@ -753,8 +753,7 @@ completions() {
 	bash) completions_bash ;;
 	zsh) completions_zsh ;;
 	*)
-		error "Unknown shell: ${shell:-<none>}"
-		printf "Usage: distill completions <shell>\n" >&2
+		error "Usage: distill completions <shell>"
 		printf "Supported shells: bash, zsh\n" >&2
 		exit 1
 		;;
