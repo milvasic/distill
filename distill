@@ -620,11 +620,14 @@ update() {
 }
 
 # ── Completions ───────────────────────────────────────────────────────────────
-completions_bash() {
-	cat <<'BASH_COMPLETION'
+completions() {
+	local shell="${1:-}"
+	case "$shell" in
+	bash)
+		cat <<'BASH_COMPLETION'
 # distill bash completion
 # Add to ~/.bashrc or source from /etc/bash_completion.d/:
-#   eval "$(distill completions bash)"
+#   source <(distill completions bash)
 
 _distill() {
 	local cur prev words cword
@@ -684,14 +687,13 @@ _distill() {
 
 complete -F _distill distill
 BASH_COMPLETION
-}
-
-completions_zsh() {
-	cat <<'ZSH_COMPLETION'
+		;;
+	zsh)
+		cat <<'ZSH_COMPLETION'
 #compdef distill
 # distill zsh completion
 # Add to ~/.zshrc or drop into a directory on $fpath:
-#   eval "$(distill completions zsh)"
+#   source <(distill completions zsh)
 
 _distill() {
 	local context state line
@@ -745,13 +747,7 @@ _distill() {
 
 _distill "$@"
 ZSH_COMPLETION
-}
-
-completions() {
-	local shell="${1:-}"
-	case "$shell" in
-	bash) completions_bash ;;
-	zsh) completions_zsh ;;
+		;;
 	*)
 		error "Usage: distill completions <shell>"
 		printf "Supported shells: bash, zsh\n" >&2
